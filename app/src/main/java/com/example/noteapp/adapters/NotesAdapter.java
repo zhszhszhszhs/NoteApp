@@ -14,6 +14,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.noteapp.listeners.NotesListener;
 import com.makeramen.roundedimageview.RoundedImageView;
 import com.example.noteapp.R;
 import com.example.noteapp.entities.Note;
@@ -26,15 +27,15 @@ import java.util.TimerTask;
 public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHolder> {
 
     private List<Note> notes;
-//    private final List<Note> notesSource;
-//    private final NotesListener notesListener;
+    private final List<Note> notesSource;
+    private final NotesListener notesListener;
 
     private Timer timer;
 
-    public NotesAdapter(List<Note> notes) {
+    public NotesAdapter(List<Note> notes, NotesListener notesListener) {
         this.notes = notes;
-       // this.notesListener = notesListener;
-       // notesSource = notes;
+        this.notesListener = notesListener;
+        notesSource = notes;
     }
 
     @NonNull
@@ -49,8 +50,8 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
     @Override
     public void onBindViewHolder(@NonNull NoteViewHolder holder, int position) {
         holder.setNote(notes.get(position));
-//        holder.layoutNote.setOnClickListener(v ->
-//                notesListener.onNoteClicked(notes.get(position), position));
+        holder.layoutNote.setOnClickListener(v ->
+                notesListener.onNoteClicked(notes.get(position), position));
     }
 
     @Override
@@ -103,33 +104,33 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         }
     }
 
-//    public void searchNotes(final String searchKeyword) {
-//        timer = new Timer();
-//        timer.schedule(new TimerTask() {
-//            @Override
-//            public void run() {
-//                if (searchKeyword.trim().isEmpty()) {
-//                    notes = notesSource;
-//                } else {
-//                    ArrayList<Note> temp = new ArrayList<>();
-//                    for (Note note : notesSource) {
-//                        if (note.getTitle().toLowerCase().contains(searchKeyword.toLowerCase()) ||
-//                                note.getSubtitle().toLowerCase().contains(searchKeyword.toLowerCase()) ||
-//                                note.getNoteText().toLowerCase().contains(searchKeyword.toLowerCase())) {
-//                            temp.add(note);
-//                        }
-//                    }
-//                    notes = temp;
-//                }
-//
-//                new Handler(Looper.getMainLooper()).post(() -> notifyDataSetChanged());
-//            }
-//        }, 500);
-//    }
-//
-//    public void cancelTimer() {
-//        if (timer != null) {
-//            timer.cancel();
-//        }
-//    }
+    public void searchNotes(final String searchKeyword) {
+        timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (searchKeyword.trim().isEmpty()) {
+                    notes = notesSource;
+                } else {
+                    ArrayList<Note> temp = new ArrayList<>();
+                    for (Note note : notesSource) {
+                        if (note.getTitle().toLowerCase().contains(searchKeyword.toLowerCase()) ||
+                                note.getSubtitle().toLowerCase().contains(searchKeyword.toLowerCase()) ||
+                                note.getNoteText().toLowerCase().contains(searchKeyword.toLowerCase())) {
+                            temp.add(note);
+                        }
+                    }
+                    notes = temp;
+                }
+
+                new Handler(Looper.getMainLooper()).post(() -> notifyDataSetChanged());
+            }
+        }, 500);
+    }
+
+    public void cancelTimer() {
+        if (timer != null) {
+            timer.cancel();
+        }
+    }
 }
