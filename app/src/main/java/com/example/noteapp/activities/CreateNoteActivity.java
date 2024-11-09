@@ -1,11 +1,19 @@
 package com.example.noteapp.activities;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -14,8 +22,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -25,6 +37,7 @@ import com.example.noteapp.database.NotesDatabase;
 import com.example.noteapp.entities.Note;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -47,6 +60,7 @@ public class CreateNoteActivity extends AppCompatActivity {
     private AlertDialog dialogDeleteNote;
 
     private Note alreadyAvailableNote;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,7 +73,7 @@ public class CreateNoteActivity extends AppCompatActivity {
         inputNoteSubtitle = findViewById(R.id.inputNoteSubtitle);
         inputNoteText = findViewById(R.id.inputNoteText);
         viewSubtitleIndicator = findViewById(R.id.viewSubtitleIndicator);
-//        imageNote = findViewById(R.id.imageNote);
+        imageNote = findViewById(R.id.imageNote);
 //        textWebURL = findViewById(R.id.textWebURL);
 //        layoutWebURL = findViewById(R.id.layoutWebURL);
 
@@ -100,7 +114,7 @@ public class CreateNoteActivity extends AppCompatActivity {
         note.setDateTime(dateTimeStr);
 
         note.setColor(selectedNoteColor);
-//        note.setImagePath(selectedImagePath);
+        note.setImagePath(selectedImagePath);
 
 //        if (layoutWebURL.getVisibility() == View.VISIBLE) {
 //            note.setWebLink(textWebURL.getText().toString());
@@ -217,16 +231,18 @@ public class CreateNoteActivity extends AppCompatActivity {
 //            }
 //        }
 //
-//        layoutMiscellaneous.findViewById(R.id.layoutAddImage).setOnClickListener(v -> {
-//            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
-//            if (ContextCompat.checkSelfPermission(getApplicationContext(),
-//                    Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-//                ActivityCompat.requestPermissions(CreateNoteActivity.this,
-//                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
-//            } else {
-//                selectImage();
-//            }
-//        });
+        layoutMiscellaneous.findViewById(R.id.layoutAddImage).setOnClickListener(v -> {
+            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+            if (ContextCompat.checkSelfPermission(getApplicationContext(),
+                    Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                Log.d("fuck", "fuck");
+                ActivityCompat.requestPermissions(CreateNoteActivity.this,
+                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
+            } else {
+                Log.d("fuck", "fuck");
+                selectImage();
+            }
+        });
 //
 //        layoutMiscellaneous.findViewById(R.id.layoutAddUrl).setOnClickListener(v -> {
 //            bottomSheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
@@ -245,5 +261,70 @@ public class CreateNoteActivity extends AppCompatActivity {
     private void setSubtitleIndicatorColor() {
         GradientDrawable gradientDrawable = (GradientDrawable) viewSubtitleIndicator.getBackground();
         gradientDrawable.setColor(Color.parseColor(selectedNoteColor));
+    }
+    @SuppressLint("QueryPermissionsNeeded")
+    private void selectImage() {
+       // Log.d("fuck", "fuck");
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
+        }else{
+           // Log.d("fuck no photo", "fuck no photo");
+            startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE_STORAGE_PERMISSION && grantResults.length > 0) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                selectImage();
+            } else {
+                Toast.makeText(this, "Permission Denied!", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_SELECT_IMAGE && resultCode == RESULT_OK) {
+            if (data != null) {
+                Uri selectedImageUri = data.getData();
+                if (selectedImageUri != null) {
+                    try {
+                        InputStream inputStream = getContentResolver().openInputStream(selectedImageUri);
+                        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                        imageNote.setImageBitmap(bitmap);
+
+//                        Glide.with(CreateNoteActivity.this)
+//                                .load(selectedImageUri)
+//                                .into(imageNote);
+
+                        imageNote.setVisibility(View.VISIBLE);
+ //                       findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
+
+                        selectedImagePath = getPathFromUri(selectedImageUri);
+                    } catch (Exception e) {
+                        Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+        }
+    }
+
+    private String getPathFromUri(Uri contentUri) {
+        String filePath;
+        Cursor cursor = getContentResolver().query(contentUri, null, null, null, null);
+        if (cursor == null) {
+            filePath = contentUri.getPath();
+        } else {
+            cursor.moveToFirst();
+            int index = cursor.getColumnIndex("_data");
+            filePath = cursor.getString(index);
+            cursor.close();
+        }
+        return filePath;
     }
 }
