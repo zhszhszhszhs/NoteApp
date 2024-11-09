@@ -24,8 +24,6 @@ import java.util.Date;
 import java.util.Locale;
 
 public class CreateNoteActivity extends AppCompatActivity {
-
-
     private EditText inputNoteTitle, inputNoteSubtitle, inputNoteText;
     private TextView textDateTime;
     @Override
@@ -68,6 +66,7 @@ public class CreateNoteActivity extends AppCompatActivity {
         note.setSubtitle(noteSubtitle);
         note.setNoteText(noteText);
         note.setDateTime(dateTimeStr);
+
 //        note.setColor(selectedNoteColor);
 //        note.setImagePath(selectedImagePath);
 
