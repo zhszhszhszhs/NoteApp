@@ -74,7 +74,7 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
             textTitle = itemView.findViewById(R.id.textTitle);
             textSubtitle = itemView.findViewById(R.id.textSubtitle);
             textDateTime = itemView.findViewById(R.id.textDateTime);
-//            layoutNote = itemView.findViewById(R.id.layoutNote);
+            layoutNote = itemView.findViewById(R.id.layoutNote);
 //            imageNote = itemView.findViewById(R.id.imageNote);
         }
 
@@ -87,12 +87,12 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
             }
             textDateTime.setText(note.getDateTime());
 
-//            GradientDrawable gradientDrawable = (GradientDrawable) layoutNote.getBackground();
-//            if (note.getColor() != null) {
-//                gradientDrawable.setColor(Color.parseColor(note.getColor()));
-//            } else {
-//                gradientDrawable.setColor(Color.parseColor("#333333"));
-//            }
+            GradientDrawable gradientDrawable = (GradientDrawable) layoutNote.getBackground();
+            if (note.getColor() != null) {
+                gradientDrawable.setColor(Color.parseColor(note.getColor()));
+            } else {
+                gradientDrawable.setColor(Color.parseColor("#333333"));
+            }
 //
 //            if (note.getImagePath() != null) {
 //                imageNote.setImageBitmap(BitmapFactory.decodeFile(note.getImagePath()));
