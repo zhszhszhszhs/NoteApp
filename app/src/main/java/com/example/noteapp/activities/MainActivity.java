@@ -115,12 +115,10 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
         findViewById(R.id.imageAddWebLink).setOnClickListener(v -> showAddURLDialog());
     }
 
-    @SuppressLint("QueryPermissionsNeeded")
     private void selectImage() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
-        }
+        startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
+
     }
 
     @Override

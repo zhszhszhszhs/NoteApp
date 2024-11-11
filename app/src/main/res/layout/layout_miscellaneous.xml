@@ -123,7 +123,7 @@
 
             <ImageView
                 android:id="@+id/imageColor5"
-                android:layout_width="@dimen/_35sdp"
+                android:layout_width="41dp"
                 android:layout_height="@dimen/_35sdp"
                 android:contentDescription="@string/app_name"
                 android:padding="@dimen/_10sdp"

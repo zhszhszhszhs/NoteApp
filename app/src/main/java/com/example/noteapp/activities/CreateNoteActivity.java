@@ -365,9 +365,7 @@ public class CreateNoteActivity extends AppCompatActivity {
     @SuppressLint("QueryPermissionsNeeded")
     private void selectImage() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
-        }
+        startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
     }
 
     @Override
@@ -393,11 +391,6 @@ public class CreateNoteActivity extends AppCompatActivity {
                         InputStream inputStream = getContentResolver().openInputStream(selectedImageUri);
                         Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
                         imageNote.setImageBitmap(bitmap);
-
-//                        Glide.with(CreateNoteActivity.this)
-//                                .load(selectedImageUri)
-//                                .into(imageNote);
-
                         imageNote.setVisibility(View.VISIBLE);
                         findViewById(R.id.imageRemoveImage).setVisibility(View.VISIBLE);
 
