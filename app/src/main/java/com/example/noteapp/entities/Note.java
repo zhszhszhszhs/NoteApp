@@ -32,7 +32,6 @@ public class Note implements Serializable {
 
     @ColumnInfo(name = "webLink")
     private String webLink;
-
     public int getId() {
         return id;
     }

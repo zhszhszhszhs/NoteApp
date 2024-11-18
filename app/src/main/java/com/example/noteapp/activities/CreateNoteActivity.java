@@ -45,6 +45,8 @@ import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class CreateNoteActivity extends AppCompatActivity {
     private static final String TAG = CreateNoteActivity.class.getSimpleName();
@@ -181,25 +183,18 @@ public class CreateNoteActivity extends AppCompatActivity {
             note.setId(alreadyAvailableNote.getId());
         }
 
-        @SuppressLint("StaticFieldLeak")
-        class SaveNoteTask extends AsyncTask<Void, Void, Void> {
-            @Override
-            protected Void doInBackground(Void... voids) {
-                NotesDatabase.getNotesDatabase(getApplicationContext()).noteDao().insertNote(note);
-                return null;
-            }
+        // 使用 ExecutorService 代替 AsyncTask
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.execute(() -> {
+            NotesDatabase.getNotesDatabase(getApplicationContext()).noteDao().insertNote(note);
 
-            @Override
-            protected void onPostExecute(Void aVoid) {
-                super.onPostExecute(aVoid);
+            // 更新 UI 在主线程中
+            runOnUiThread(() -> {
                 Intent intent = new Intent();
                 setResult(RESULT_OK, intent);
-
                 finish();
-            }
-        }
-
-        new SaveNoteTask().execute();
+            });
+        });
     }
 
     private void initMiscellaneous() {
@@ -326,29 +321,22 @@ public class CreateNoteActivity extends AppCompatActivity {
             if (dialogDeleteNote.getWindow() != null) {
                 dialogDeleteNote.getWindow().setBackgroundDrawable(new ColorDrawable(0));
             }
+
             view.findViewById(R.id.textDeleteNote).setOnClickListener(v -> {
-                @SuppressLint("StaticFieldLeak")
-                class DeleteNoteTask extends AsyncTask<Void, Void, Void> {
+                // 使用 ExecutorService 来执行后台任务
+                ExecutorService executorService = Executors.newSingleThreadExecutor();
+                executorService.execute(() -> {
+                    NotesDatabase.getNotesDatabase(getApplicationContext()).noteDao().deleteNote(alreadyAvailableNote);
 
-                    @Override
-                    protected Void doInBackground(Void... voids) {
-                        NotesDatabase.getNotesDatabase(getApplicationContext()).noteDao().deleteNote(alreadyAvailableNote);
-                        return null;
-                    }
-
-                    @Override
-                    protected void onPostExecute(Void aVoid) {
-                        super.onPostExecute(aVoid);
+                    // 删除操作完成后，更新 UI
+                    runOnUiThread(() -> {
                         Intent intent = new Intent();
                         intent.putExtra("isNoteDeleted", true);
                         setResult(RESULT_OK, intent);
-
                         dialogDeleteNote.dismiss();
                         finish();
-                    }
-                }
-
-                new DeleteNoteTask().execute();
+                    });
+                });
             });
 
             view.findViewById(R.id.textCancel).setOnClickListener(v -> dialogDeleteNote.dismiss());
@@ -356,6 +344,7 @@ public class CreateNoteActivity extends AppCompatActivity {
 
         dialogDeleteNote.show();
     }
+
 
     private void setSubtitleIndicatorColor() {
         GradientDrawable gradientDrawable = (GradientDrawable) viewSubtitleIndicator.getBackground();

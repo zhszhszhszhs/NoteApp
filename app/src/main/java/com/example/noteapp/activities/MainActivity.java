@@ -21,6 +21,8 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -41,6 +43,8 @@ import com.example.noteapp.listeners.NotesListener;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity implements NotesListener {
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -59,15 +63,61 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
 
     private AlertDialog dialogAddURL;
 
+    // 1. 定义 ActivityResultLauncher
+    private ActivityResultLauncher<Intent> addNoteLauncher;
+    private ActivityResultLauncher<Intent> updateNoteLauncher;
+    private ActivityResultLauncher<Intent> selectImageLauncher;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ImageView imageAddNoteMain = findViewById(R.id.imageAddNoteMain);
-        imageAddNoteMain.setOnClickListener(v -> startActivityForResult(
-                new Intent(getApplicationContext(), CreateNoteActivity.class), REQUEST_CODE_ADD_NOTE)
+        // 2. 初始化 ActivityResultLauncher
+        addNoteLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK) {
+                        getNotes(REQUEST_CODE_ADD_NOTE, false);
+                    }
+                }
         );
+
+        updateNoteLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        getNotes(REQUEST_CODE_UPDATE_NOTE, result.getData().getBooleanExtra("isNoteDeleted", false));
+                    }
+                }
+        );
+
+        selectImageLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Uri selectedImageUri = result.getData().getData();
+                        if (selectedImageUri != null) {
+                            try {
+                                String selectedImagePath = getPathFromUri(selectedImageUri);
+                                Intent intent = new Intent(getApplicationContext(), CreateNoteActivity.class);
+                                intent.putExtra("isFromQuickActions", true);
+                                intent.putExtra("quickActionType", "image");
+                                intent.putExtra("imagePath", selectedImagePath);
+                                addNoteLauncher.launch(intent);
+                            } catch (Exception e) {
+                                Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    }
+                }
+        );
+
+        ImageView imageAddNoteMain = findViewById(R.id.imageAddNoteMain);
+        imageAddNoteMain.setOnClickListener(v -> {
+            Intent intent = new Intent(getApplicationContext(), CreateNoteActivity.class);
+            addNoteLauncher.launch(intent);
+        });
 
         notesRecyclerView = findViewById(R.id.notesRecyclerView);
         notesRecyclerView.setLayoutManager(
@@ -82,9 +132,7 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
         EditText inputSearch = findViewById(R.id.inputSearch);
         inputSearch.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -99,8 +147,10 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
             }
         });
 
-        findViewById(R.id.imageAddNote).setOnClickListener(v -> startActivityForResult(
-                new Intent(getApplicationContext(), CreateNoteActivity.class), REQUEST_CODE_ADD_NOTE));
+        findViewById(R.id.imageAddNote).setOnClickListener(v -> {
+            Intent intent = new Intent(getApplicationContext(), CreateNoteActivity.class);
+            addNoteLauncher.launch(intent);
+        });
 
         findViewById(R.id.imageAddImage).setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(getApplicationContext(),
@@ -117,8 +167,7 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
 
     private void selectImage() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(intent, REQUEST_CODE_SELECT_IMAGE);
-
+        selectImageLauncher.launch(intent);
     }
 
     @Override
@@ -153,71 +202,40 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
         Intent intent = new Intent(getApplicationContext(), CreateNoteActivity.class);
         intent.putExtra("isViewOrUpdate", true);
         intent.putExtra("note", note);
-        startActivityForResult(intent, REQUEST_CODE_UPDATE_NOTE);
+        updateNoteLauncher.launch(intent);
     }
 
     private void getNotes(final int requestCode, final boolean isNoteDeleted) {
-
-        @SuppressLint("StaticFieldLeak")
-        class GetNoteTask extends AsyncTask<Void, Void, List<Note>> {
-
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(new Runnable() {
             @Override
-            protected List<Note> doInBackground(Void... voids) {
-                return NotesDatabase.getNotesDatabase(getApplicationContext())
+            public void run() {
+                List<Note> notes = NotesDatabase.getNotesDatabase(getApplicationContext())
                         .noteDao().getAllNotes();
-            }
-
-            @Override
-            protected void onPostExecute(List<Note> notes) {
-                super.onPostExecute(notes);
-                if (requestCode == REQUEST_CODE_SHOW_NOTES) {
-                    noteList.addAll(notes);
-                    notesAdapter.notifyDataSetChanged();
-                } else if (requestCode == REQUEST_CODE_ADD_NOTE) {
-                    noteList.add(0, notes.get(0));
-                    notesAdapter.notifyItemInserted(0);
-                    notesRecyclerView.smoothScrollToPosition(0);
-                } else if (requestCode == REQUEST_CODE_UPDATE_NOTE) {
-                    noteList.remove(noteClickedPosition);
-                    if (isNoteDeleted) {
-                        notesAdapter.notifyItemRemoved(noteClickedPosition);
-                    } else {
-                        noteList.add(noteClickedPosition, notes.get(noteClickedPosition));
-                        notesAdapter.notifyItemChanged(noteClickedPosition);
+                // 在主线程更新 UI
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (requestCode == REQUEST_CODE_SHOW_NOTES) {
+                            noteList.addAll(notes);
+                            notesAdapter.notifyDataSetChanged();
+                        } else if (requestCode == REQUEST_CODE_ADD_NOTE) {
+                            noteList.add(0, notes.get(0));
+                            notesAdapter.notifyItemInserted(0);
+                            notesRecyclerView.smoothScrollToPosition(0);
+                        } else if (requestCode == REQUEST_CODE_UPDATE_NOTE) {
+                            noteList.remove(noteClickedPosition);
+                            if (isNoteDeleted) {
+                                notesAdapter.notifyItemRemoved(noteClickedPosition);
+                            } else {
+                                noteList.add(noteClickedPosition, notes.get(noteClickedPosition));
+                                notesAdapter.notifyItemChanged(noteClickedPosition);
+                            }
+                        }
                     }
-                }
+                });
             }
-        }
-
-        new GetNoteTask().execute();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_CODE_ADD_NOTE && resultCode == RESULT_OK) {
-            getNotes(REQUEST_CODE_ADD_NOTE, false);
-        } else if (requestCode == REQUEST_CODE_UPDATE_NOTE && resultCode == RESULT_OK) {
-            if (data != null) {
-                getNotes(REQUEST_CODE_UPDATE_NOTE, data.getBooleanExtra("isNoteDeleted", false));
-            }
-        } else if (requestCode == REQUEST_CODE_SELECT_IMAGE && resultCode == RESULT_OK) {
-            if (data != null) {
-                Uri selectedImageUri = data.getData();
-                if (selectedImageUri != null) {
-                    try {
-                        String selectedImagePath = getPathFromUri(selectedImageUri);
-                        Intent intent = new Intent(getApplicationContext(), CreateNoteActivity.class);
-                        intent.putExtra("isFromQuickActions", true);
-                        intent.putExtra("quickActionType", "image");
-                        intent.putExtra("imagePath", selectedImagePath);
-                        startActivityForResult(intent, REQUEST_CODE_ADD_NOTE);
-                    } catch (Exception e) {
-                        Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                }
-            }
-        }
+        });
     }
 
     private void showAddURLDialog() {
@@ -248,8 +266,7 @@ public class MainActivity extends AppCompatActivity implements NotesListener {
                     intent.putExtra("isFromQuickActions", true);
                     intent.putExtra("quickActionType", "URL");
                     intent.putExtra("URL", inputURLStr);
-                    startActivityForResult(intent, REQUEST_CODE_ADD_NOTE);
-
+                    addNoteLauncher.launch(intent);
                 }
             });
 
